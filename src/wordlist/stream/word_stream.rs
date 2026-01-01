@@ -29,16 +29,6 @@ impl<I: Iterator> WordStream<I> {
         }
     }
 
-    /// Creates a new WordStream that skips sortedness validation.
-    ///
-    /// Use this only when the data is known to be sorted (e.g., after
-    /// sorting in memory).
-    pub(crate) fn new_unchecked(inner: I) -> Self {
-        Self {
-            inner: inner.peekable(),
-        }
-    }
-
     /// Consumes the stream and returns the underlying peekable iterator.
     pub fn into_inner(self) -> Peekable<I> {
         self.inner
