@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+csv = "1"
 sorted-vec = "0.8"
 zstd = "0.13"

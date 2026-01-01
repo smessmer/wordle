@@ -17,7 +17,7 @@ pub struct UnsortedWords {
 }
 
 impl UnsortedWords {
-    fn new(words: Vec<Word>) -> Self {
+    pub fn new(words: Vec<Word>) -> Self {
         Self {
             inner: words.into_iter(),
         }

@@ -46,8 +46,9 @@ mod word_stream;
 pub use boxed::BoxedWordStream;
 pub use super::ordering::case_fold_cmp;
 pub use sources::{
-    from_sorted_file, from_sorted_reader, from_sorted_zst_file, from_unsorted_file,
-    from_unsorted_reader, from_unsorted_zst_file, SortedLines, UnsortedWords,
+    from_csv_file, from_csv_reader, from_csv_zst_file, from_sorted_file, from_sorted_reader,
+    from_sorted_zst_file, from_unsorted_file, from_unsorted_reader, from_unsorted_zst_file,
+    SortedLines, UnsortedWords,
 };
 pub use word_stream::WordStream;
 
