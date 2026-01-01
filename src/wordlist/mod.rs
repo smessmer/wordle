@@ -7,6 +7,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
+pub mod stream;
+
 /// A sorted, unique collection of strings.
 ///
 /// Backed by `SortedSet<String>` for O(log n) lookups and O(n+m) merges.
