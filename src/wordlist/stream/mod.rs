@@ -41,6 +41,7 @@ pub use sources::{from_sorted_file, from_unsorted_file, SortedFileLines, Unsorte
 pub use word_stream::WordStream;
 
 use std::io;
+use std::iter::Peekable;
 use std::path::Path;
 
 use crate::wordlist::UniqueStringSet;
@@ -121,7 +122,7 @@ where
     ///     .collect_to_set()?;
     /// # Ok::<(), std::io::Error>(())
     /// ```
-    pub fn filter<F>(self, predicate: F) -> WordStream<FilterStream<I, F>>
+    pub fn filter<F>(self, predicate: F) -> WordStream<FilterStream<Peekable<I>, F>>
     where
         F: FnMut(&str) -> bool,
     {
@@ -143,7 +144,7 @@ where
     ///     .write_to_file("lowercase_words.txt")?;
     /// # Ok::<(), std::io::Error>(())
     /// ```
-    pub fn to_lowercase(self) -> WordStream<LowercaseStream<I>> {
+    pub fn to_lowercase(self) -> WordStream<LowercaseStream<Peekable<I>>> {
         WordStream::new_unchecked(LowercaseStream::new(self.into_inner()))
     }
 
@@ -164,7 +165,7 @@ where
     ///     .write_to_file("unique_words.txt")?;
     /// # Ok::<(), std::io::Error>(())
     /// ```
-    pub fn dedup(self) -> WordStream<DedupStream<I>> {
+    pub fn dedup(self) -> WordStream<DedupStream<Peekable<I>>> {
         WordStream::new_unchecked(DedupStream::new(self.into_inner()))
     }
 

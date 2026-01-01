@@ -20,11 +20,8 @@ where
     I1: Iterator,
     I2: Iterator,
 {
-    pub fn new(left: I1, right: I2) -> Self {
-        Self {
-            left: left.peekable(),
-            right: right.peekable(),
-        }
+    pub fn new(left: Peekable<I1>, right: Peekable<I2>) -> Self {
+        Self { left, right }
     }
 }
 
@@ -66,8 +63,8 @@ mod tests {
 
     #[test]
     fn test_merge_disjoint() {
-        let left = ok_iter(["apple", "banana"]);
-        let right = ok_iter(["cherry", "date"]);
+        let left = ok_iter(["apple", "banana"]).peekable();
+        let right = ok_iter(["cherry", "date"]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry", "date"]);
@@ -75,8 +72,8 @@ mod tests {
 
     #[test]
     fn test_merge_interleaved() {
-        let left = ok_iter(["apple", "cherry"]);
-        let right = ok_iter(["banana", "date"]);
+        let left = ok_iter(["apple", "cherry"]).peekable();
+        let right = ok_iter(["banana", "date"]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry", "date"]);
@@ -84,8 +81,8 @@ mod tests {
 
     #[test]
     fn test_merge_with_duplicates() {
-        let left = ok_iter(["apple", "banana"]);
-        let right = ok_iter(["apple", "cherry"]);
+        let left = ok_iter(["apple", "banana"]).peekable();
+        let right = ok_iter(["apple", "cherry"]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         // Both "apple"s are emitted (left first due to <=)
@@ -95,8 +92,8 @@ mod tests {
     #[test]
     fn test_merge_case_fold_order() {
         // "apple" < "Apple" < "APPLE" in case-fold order
-        let left = ok_iter(["apple", "APPLE"]);
-        let right = ok_iter(["Apple", "banana"]);
+        let left = ok_iter(["apple", "APPLE"]).peekable();
+        let right = ok_iter(["Apple", "banana"]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert_eq!(collected, vec!["apple", "Apple", "APPLE", "banana"]);
@@ -104,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_merge_left_empty() {
-        let left = ok_iter([]);
-        let right = ok_iter(["apple", "banana"]);
+        let left = ok_iter([]).peekable();
+        let right = ok_iter(["apple", "banana"]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert_eq!(collected, vec!["apple", "banana"]);
@@ -113,8 +110,8 @@ mod tests {
 
     #[test]
     fn test_merge_right_empty() {
-        let left = ok_iter(["apple", "banana"]);
-        let right = ok_iter([]);
+        let left = ok_iter(["apple", "banana"]).peekable();
+        let right = ok_iter([]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert_eq!(collected, vec!["apple", "banana"]);
@@ -122,8 +119,8 @@ mod tests {
 
     #[test]
     fn test_merge_both_empty() {
-        let left = ok_iter([]);
-        let right = ok_iter([]);
+        let left = ok_iter([]).peekable();
+        let right = ok_iter([]).peekable();
         let merged = MergeStream::new(left, right);
         let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
@@ -140,7 +137,7 @@ mod tests {
             Ok("banana".to_string()),
             Ok("date".to_string()),
         ];
-        let merged = MergeStream::new(left.into_iter(), right.into_iter());
+        let merged = MergeStream::new(left.into_iter().peekable(), right.into_iter().peekable());
         let results: Vec<_> = merged.collect();
 
         // Error is emitted immediately when encountered (after apple)

@@ -2,6 +2,7 @@
 
 use std::cmp::Ordering;
 use std::io;
+use std::iter::Peekable;
 
 use super::ordering::case_fold_cmp;
 
@@ -10,20 +11,21 @@ use super::ordering::case_fold_cmp;
 /// Panics during iteration if the underlying data is not sorted.
 /// This ensures that any `WordStream` can be safely used for operations
 /// that require sorted input (like deduplication or writing to sorted files).
-pub struct WordStream<I> {
-    inner: I,
-    previous: Option<String>,
+///
+/// Uses `Peekable` internally to validate sortedness by comparing current
+/// with next item, eliminating the need to store the previous item.
+pub struct WordStream<I: Iterator> {
+    inner: Peekable<I>,
 }
 
-impl<I> WordStream<I> {
+impl<I: Iterator> WordStream<I> {
     /// Creates a new WordStream wrapping the given iterator.
     ///
     /// The stream will validate sortedness during iteration and panic
     /// if items are not in case-fold order.
     pub(crate) fn new(inner: I) -> Self {
         Self {
-            inner,
-            previous: None,
+            inner: inner.peekable(),
         }
     }
 
@@ -33,13 +35,12 @@ impl<I> WordStream<I> {
     /// sorting in memory).
     pub(crate) fn new_unchecked(inner: I) -> Self {
         Self {
-            inner,
-            previous: None,
+            inner: inner.peekable(),
         }
     }
 
-    /// Consumes the stream and returns the underlying iterator.
-    pub fn into_inner(self) -> I {
+    /// Consumes the stream and returns the underlying peekable iterator.
+    pub fn into_inner(self) -> Peekable<I> {
         self.inner
     }
 }
@@ -55,16 +56,15 @@ where
 
         match item {
             Ok(s) => {
-                // Validate sortedness
-                if let Some(ref prev) = self.previous
-                    && case_fold_cmp(&s, prev) == Ordering::Less
+                // Validate sortedness by peeking at the next item
+                if let Some(Ok(next)) = self.inner.peek()
+                    && case_fold_cmp(&s, next) == Ordering::Greater
                 {
                     panic!(
-                        "WordStream is not sorted: {:?} came after {:?}",
-                        s, prev
+                        "WordStream is not sorted: {:?} came before {:?}",
+                        s, next
                     );
                 }
-                self.previous = Some(s.clone());
                 Some(Ok(s))
             }
             Err(e) => Some(Err(e)),
