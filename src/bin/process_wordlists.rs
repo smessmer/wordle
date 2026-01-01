@@ -23,10 +23,11 @@ fn main() -> io::Result<()> {
 }
 
 /// Loads a single input file and applies the standard processing pipeline:
-/// filter to 5-char words, lowercase, dedup.
+/// filter to 5-char words, filter non-alphabetic, lowercase, dedup.
 fn process_input(path: &str) -> io::Result<BoxedWordStream> {
     Ok(from_unsorted_zst_file(path)?
         .filter(|w| w.chars().count() == 5)
+        .filter_non_alphabetic()
         .to_lowercase()
         .dedup()
         .boxed())

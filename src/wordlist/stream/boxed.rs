@@ -6,7 +6,9 @@ use std::path::Path;
 use crate::wordlist::Word;
 
 use super::sinks;
-use super::transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
+use super::transforms::{
+    filter_non_alphabetic, DedupStream, FilterStream, LowercaseStream, MergeStream,
+};
 
 /// A type-erased word stream for dynamic composition.
 ///
@@ -74,6 +76,11 @@ impl BoxedWordStream {
     /// Removes consecutive duplicates using case-fold equality.
     pub fn dedup(self) -> Self {
         BoxedWordStream::new(DedupStream::new(self.inner.peekable()))
+    }
+
+    /// Filters out words with non-alphabetic characters, warning on stderr.
+    pub fn filter_non_alphabetic(self) -> Self {
+        BoxedWordStream::new(filter_non_alphabetic(self.inner))
     }
 
     /// Writes all items to a file, one per line.

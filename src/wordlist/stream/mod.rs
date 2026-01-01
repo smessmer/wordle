@@ -59,7 +59,7 @@ use std::path::Path;
 use zstd::Decoder;
 
 use crate::wordlist::{Word, WordSet};
-use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
+use transforms::{filter_non_alphabetic, DedupStream, FilterStream, LowercaseStream, MergeStream};
 
 /// Type alias for the iterator produced by `WordStream::from_word_set`.
 type WordSetIter = std::iter::Map<
@@ -266,6 +266,27 @@ where
     /// ```
     pub fn dedup(self) -> WordStream<DedupStream<Peekable<I>>> {
         WordStream::new(DedupStream::new(self.into_inner()))
+    }
+
+    /// Filters out words with non-alphabetic characters, warning on stderr.
+    ///
+    /// Words containing any non-alphabetic character (e.g., digits, punctuation)
+    /// are removed from the stream, and a warning is printed to stderr for each.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::from_unsorted_file;
+    ///
+    /// from_unsorted_file("words.txt")?
+    ///     .filter_non_alphabetic()
+    ///     .write_to_file("alphabetic_words.txt")?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn filter_non_alphabetic(
+        self,
+    ) -> WordStream<FilterStream<Peekable<I>, impl FnMut(&str) -> bool>> {
+        WordStream::new(filter_non_alphabetic(self.into_inner()))
     }
 
     /// Merges this stream with another sorted stream.
