@@ -4,18 +4,18 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 
-use crate::wordlist::stream::ordering::case_fold_cmp;
 use crate::wordlist::stream::word_stream::WordStream;
+use crate::wordlist::Word;
 
 /// Iterator over words loaded from an unsorted file and sorted in memory.
 ///
 /// This is the underlying iterator type for `WordStream::from_unsorted_file()`.
 pub struct UnsortedFileWords {
-    inner: std::vec::IntoIter<String>,
+    inner: std::vec::IntoIter<Word>,
 }
 
 impl UnsortedFileWords {
-    fn new(words: Vec<String>) -> Self {
+    fn new(words: Vec<Word>) -> Self {
         Self {
             inner: words.into_iter(),
         }
@@ -23,7 +23,7 @@ impl UnsortedFileWords {
 }
 
 impl Iterator for UnsortedFileWords {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(Ok)
@@ -55,7 +55,7 @@ pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<WordStream<Unsor
     let reader = BufReader::new(file);
 
     // Read all lines, trim, skip empty
-    let mut words: Vec<String> = reader
+    let mut words: Vec<Word> = reader
         .lines()
         .filter_map(|line| {
             let line = line.ok()?;
@@ -63,13 +63,13 @@ pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<WordStream<Unsor
             if trimmed.is_empty() {
                 None
             } else {
-                Some(trimmed.to_string())
+                Some(Word(trimmed.to_string()))
             }
         })
         .collect();
 
-    // Sort using case-fold ordering
-    words.sort_by(|a, b| case_fold_cmp(a, b));
+    // Sort using case-fold ordering (Word implements Ord with case-fold)
+    words.sort();
 
     Ok(WordStream::new(UnsortedFileWords::new(words)))
 }
@@ -96,7 +96,7 @@ mod tests {
     fn test_sorts_unsorted_file() {
         let path = create_temp_file("cherry\napple\nbanana\n");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -105,7 +105,7 @@ mod tests {
     fn test_case_fold_sorting() {
         let path = create_temp_file("APPLE\napple\nApple\nbanana\n");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         // case-fold order: apple < Apple < APPLE < banana
         assert_eq!(words, vec!["apple", "Apple", "APPLE", "banana"]);
         std::fs::remove_file(path).ok();
@@ -115,7 +115,7 @@ mod tests {
     fn test_skips_empty_lines() {
         let path = create_temp_file("cherry\n\napple\n  \nbanana\n");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -124,7 +124,7 @@ mod tests {
     fn test_trims_whitespace() {
         let path = create_temp_file("  cherry  \n  apple\nbanana  \n");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -139,7 +139,7 @@ mod tests {
     fn test_empty_file() {
         let path = create_temp_file("");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(words.is_empty());
         std::fs::remove_file(path).ok();
     }
@@ -148,7 +148,7 @@ mod tests {
     fn test_german_umlauts_sorting() {
         let path = create_temp_file("Ärger\närger\nbär\nÄRGER\n");
         let stream = from_unsorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         // In Unicode, 'b' < 'ä', so: bär < ärger < Ärger < ÄRGER
         assert_eq!(words, vec!["bär", "ärger", "Ärger", "ÄRGER"]);
         std::fs::remove_file(path).ok();

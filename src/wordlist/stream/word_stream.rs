@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::io;
 use std::iter::Peekable;
 
-use super::ordering::case_fold_cmp;
+use crate::wordlist::Word;
 
 /// A stream of words, guaranteed to be sorted in case-fold order.
 ///
@@ -37,25 +37,25 @@ impl<I: Iterator> WordStream<I> {
 
 impl<I> Iterator for WordStream<I>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
 {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.inner.next()?;
 
         match item {
-            Ok(s) => {
+            Ok(w) => {
                 // Validate sortedness by peeking at the next item
                 if let Some(Ok(next)) = self.inner.peek()
-                    && case_fold_cmp(&s, next) == Ordering::Greater
+                    && w.cmp(next) == Ordering::Greater
                 {
                     panic!(
                         "WordStream is not sorted: {:?} came before {:?}",
-                        s, next
+                        w, next
                     );
                 }
-                Some(Ok(s))
+                Some(Ok(w))
             }
             Err(e) => Some(Err(e)),
         }
@@ -66,14 +66,18 @@ where
 mod tests {
     use super::*;
 
-    fn ok_iter<I: IntoIterator<Item = &'static str>>(items: I) -> impl Iterator<Item = io::Result<String>> {
-        items.into_iter().map(|s| Ok(s.to_string()))
+    fn ok_iter<I: IntoIterator<Item = &'static str>>(
+        items: I,
+    ) -> impl Iterator<Item = io::Result<Word>> {
+        items
+            .into_iter()
+            .map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]
     fn test_sorted_stream_iterates() {
         let stream = WordStream::new(ok_iter(["apple", "banana", "cherry"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry"]);
     }
 
@@ -81,7 +85,7 @@ mod tests {
     fn test_case_fold_sorted_stream() {
         // "apple" < "Apple" < "banana" in case-fold order
         let stream = WordStream::new(ok_iter(["apple", "Apple", "banana"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "Apple", "banana"]);
     }
 
@@ -103,23 +107,23 @@ mod tests {
     #[test]
     fn test_empty_stream() {
         let stream: WordStream<_> = WordStream::new(ok_iter([]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
     }
 
     #[test]
     fn test_single_item_stream() {
         let stream = WordStream::new(ok_iter(["hello"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["hello"]);
     }
 
     #[test]
     fn test_io_error_propagates() {
-        let items: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let items: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "test error")),
-            Ok("banana".to_string()),
+            Ok(Word("banana".to_string())),
         ];
         let stream = WordStream::new(items.into_iter());
         let results: Vec<_> = stream.collect();

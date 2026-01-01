@@ -30,7 +30,7 @@ fn char_cmp(a: char, b: char) -> Ordering {
 ///
 /// ```
 /// use std::cmp::Ordering;
-/// # use wordle::wordlist::stream::ordering::case_fold_cmp;
+/// # use wordle::wordlist::ordering::case_fold_cmp;
 ///
 /// assert_eq!(case_fold_cmp("apple", "Apple"), Ordering::Less);
 /// assert_eq!(case_fold_cmp("Apple", "APPLE"), Ordering::Less);

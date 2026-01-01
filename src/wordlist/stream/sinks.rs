@@ -4,19 +4,19 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-use crate::wordlist::WordSet;
+use crate::wordlist::{Word, WordSet};
 
-/// Collects an iterator of `io::Result<String>` into a `WordSet`.
+/// Collects an iterator of `io::Result<Word>` into a `WordSet`.
 ///
 /// # Errors
 ///
 /// Returns an error if any item in the iterator is an error.
 pub fn collect_to_set<I>(iter: I) -> io::Result<WordSet>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
 {
-    let words: Result<Vec<String>, io::Error> = iter.collect();
-    Ok(words?.into_iter().collect())
+    let words: Result<Vec<Word>, io::Error> = iter.collect();
+    Ok(words?.into_iter().map(|w| w.0).collect())
 }
 
 /// Writes items from an iterator to a file, one per line.
@@ -29,14 +29,14 @@ where
 /// or if any item in the iterator is an error.
 pub fn write_to_file<I>(iter: I, path: impl AsRef<Path>) -> io::Result<()>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
 {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
 
     for item in iter {
-        let s = item?;
-        writeln!(writer, "{}", s)?;
+        let w = item?;
+        writeln!(writer, "{}", w.0)?;
     }
 
     writer.flush()?;
@@ -49,8 +49,8 @@ mod tests {
 
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
-    ) -> impl Iterator<Item = io::Result<String>> {
-        items.into_iter().map(|s| Ok(s.to_string()))
+    ) -> impl Iterator<Item = io::Result<Word>> {
+        items.into_iter().map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]
@@ -76,8 +76,8 @@ mod tests {
 
     #[test]
     fn test_collect_to_set_error() {
-        let items: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let items: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "test error")),
         ];
         let result = collect_to_set(items.into_iter());
@@ -130,8 +130,8 @@ mod tests {
                 .as_nanos()
         ));
 
-        let items: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let items: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "test error")),
         ];
 

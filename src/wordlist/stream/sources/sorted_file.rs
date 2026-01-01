@@ -5,6 +5,7 @@ use std::io::{self, BufRead, BufReader, Lines};
 use std::path::Path;
 
 use crate::wordlist::stream::word_stream::WordStream;
+use crate::wordlist::Word;
 
 /// Iterator that reads lines from a file, trimming whitespace and skipping empty lines.
 ///
@@ -22,7 +23,7 @@ impl SortedFileLines {
 }
 
 impl Iterator for SortedFileLines {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -32,7 +33,7 @@ impl Iterator for SortedFileLines {
                     if trimmed.is_empty() {
                         continue;
                     }
-                    return Some(Ok(trimmed.to_string()));
+                    return Some(Ok(Word(trimmed.to_string())));
                 }
                 Err(e) => return Some(Err(e)),
             }
@@ -91,7 +92,7 @@ mod tests {
     fn test_read_sorted_file() {
         let path = create_temp_file("apple\nbanana\ncherry\n");
         let stream = from_sorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -100,7 +101,7 @@ mod tests {
     fn test_skips_empty_lines() {
         let path = create_temp_file("apple\n\nbanana\n  \ncherry\n");
         let stream = from_sorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -109,7 +110,7 @@ mod tests {
     fn test_trims_whitespace() {
         let path = create_temp_file("  apple  \n  banana\ncherry  \n");
         let stream = from_sorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(words, vec!["apple", "banana", "cherry"]);
         std::fs::remove_file(path).ok();
     }
@@ -133,7 +134,7 @@ mod tests {
     fn test_empty_file() {
         let path = create_temp_file("");
         let stream = from_sorted_file(&path).unwrap();
-        let words: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let words: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(words.is_empty());
         std::fs::remove_file(path).ok();
     }

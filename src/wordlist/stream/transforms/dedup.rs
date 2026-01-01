@@ -2,6 +2,8 @@
 
 use std::io;
 
+use crate::wordlist::Word;
+
 /// An iterator that removes consecutive duplicates using case-insensitive equality.
 ///
 /// Two strings are considered equal if their lowercase forms are identical.
@@ -23,15 +25,15 @@ impl<I> DedupStream<I> {
 
 impl<I> Iterator for DedupStream<I>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
 {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.inner.next()? {
-                Ok(s) => {
-                    let s_lower = s.to_lowercase();
+                Ok(w) => {
+                    let s_lower = w.0.to_lowercase();
                     let is_dup = self
                         .previous_lower
                         .as_ref()
@@ -43,7 +45,7 @@ where
                     }
 
                     self.previous_lower = Some(s_lower);
-                    return Some(Ok(s));
+                    return Some(Ok(w));
                 }
                 Err(e) => return Some(Err(e)),
             }
@@ -57,14 +59,14 @@ mod tests {
 
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
-    ) -> impl Iterator<Item = io::Result<String>> {
-        items.into_iter().map(|s| Ok(s.to_string()))
+    ) -> impl Iterator<Item = io::Result<Word>> {
+        items.into_iter().map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]
     fn test_dedup_exact_duplicates() {
         let stream = DedupStream::new(ok_iter(["apple", "apple", "banana", "banana", "cherry"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry"]);
     }
 
@@ -72,7 +74,7 @@ mod tests {
     fn test_dedup_case_fold_duplicates() {
         // In case-fold order: apple < Apple < APPLE, but they're equal for dedup
         let stream = DedupStream::new(ok_iter(["apple", "Apple", "APPLE", "banana"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         // Keeps the first occurrence
         assert_eq!(collected, vec!["apple", "banana"]);
     }
@@ -80,31 +82,31 @@ mod tests {
     #[test]
     fn test_dedup_no_duplicates() {
         let stream = DedupStream::new(ok_iter(["apple", "banana", "cherry"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry"]);
     }
 
     #[test]
     fn test_dedup_all_same() {
         let stream = DedupStream::new(ok_iter(["apple", "apple", "apple"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple"]);
     }
 
     #[test]
     fn test_dedup_german_umlauts() {
         let stream = DedupStream::new(ok_iter(["ärger", "Ärger", "ÄRGER", "bär"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["ärger", "bär"]);
     }
 
     #[test]
     fn test_dedup_preserves_errors() {
-        let items: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let items: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "test error")),
-            Ok("apple".to_string()), // This is still considered a dup of the first apple
-            Ok("banana".to_string()), // Different word, not a dup
+            Ok(Word("apple".to_string())), // This is still considered a dup of the first apple
+            Ok(Word("banana".to_string())), // Different word, not a dup
         ];
         let stream = DedupStream::new(items.into_iter());
         let results: Vec<_> = stream.collect();
@@ -119,14 +121,14 @@ mod tests {
     #[test]
     fn test_dedup_empty() {
         let stream = DedupStream::new(ok_iter([]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
     }
 
     #[test]
     fn test_dedup_single() {
         let stream = DedupStream::new(ok_iter(["hello"]));
-        let collected: Vec<String> = stream.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["hello"]);
     }
 }

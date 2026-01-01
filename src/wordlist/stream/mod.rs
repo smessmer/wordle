@@ -30,13 +30,12 @@
 //!
 //! This means `"apple" < "Apple" < "APPLE" < "banana"`.
 
-pub mod ordering;
-mod sources;
 mod sinks;
+mod sources;
 mod transforms;
 mod word_stream;
 
-pub use ordering::case_fold_cmp;
+pub use super::ordering::case_fold_cmp;
 pub use sources::{from_sorted_file, from_unsorted_file, SortedFileLines, UnsortedFileWords};
 pub use word_stream::WordStream;
 
@@ -44,11 +43,14 @@ use std::io;
 use std::iter::Peekable;
 use std::path::Path;
 
-use crate::wordlist::WordSet;
+use crate::wordlist::{Word, WordSet};
 use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
 
 /// Type alias for the iterator produced by `WordStream::from_word_set`.
-type WordSetIter = std::iter::Map<std::vec::IntoIter<String>, fn(String) -> io::Result<String>>;
+type WordSetIter = std::iter::Map<
+    <WordSet as IntoIterator>::IntoIter,
+    fn(Word) -> io::Result<Word>,
+>;
 
 impl WordStream<SortedFileLines> {
     /// Creates a WordStream from a pre-sorted file.
@@ -110,7 +112,7 @@ impl WordStream<WordSetIter> {
     /// Creates a WordStream from a WordSet.
     ///
     /// Since WordSet is already sorted, this is an infallible operation
-    /// that wraps each string in `Ok()`.
+    /// that wraps each word in `Ok()`.
     ///
     /// # Example
     ///
@@ -127,13 +129,13 @@ impl WordStream<WordSetIter> {
     /// # Ok::<(), std::io::Error>(())
     /// ```
     pub fn from_word_set(set: WordSet) -> Self {
-        WordStream::new(set.into_iter().map(Ok as fn(String) -> io::Result<String>))
+        WordStream::new(set.into_iter().map(Ok as fn(Word) -> io::Result<Word>))
     }
 }
 
 impl<I> WordStream<I>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
 {
     /// Filters items using a predicate.
     ///
@@ -217,7 +219,7 @@ where
     /// ```
     pub fn merge<I2>(self, other: WordStream<I2>) -> WordStream<MergeStream<I, I2>>
     where
-        I2: Iterator<Item = io::Result<String>>,
+        I2: Iterator<Item = io::Result<Word>>,
     {
         WordStream::new(MergeStream::new(self.into_inner(), other.into_inner()))
     }

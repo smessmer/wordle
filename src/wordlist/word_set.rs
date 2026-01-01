@@ -2,12 +2,16 @@
 
 use sorted_vec::SortedSet;
 
-/// A sorted, unique collection of strings.
+use super::ordering::case_fold_cmp;
+use super::word::Word;
+
+/// A sorted, unique collection of words.
 ///
-/// Backed by `SortedSet<String>` for O(log n) lookups.
+/// Backed by `SortedSet<Word>` for O(log n) lookups.
+/// Uses case-fold ordering: `"apple" < "Apple" < "APPLE" < "banana"`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WordSet {
-    inner: SortedSet<String>,
+    inner: SortedSet<Word>,
 }
 
 impl WordSet {
@@ -21,11 +25,11 @@ impl WordSet {
     /// Returns `true` if the set contains the given string.
     pub fn contains(&self, s: &str) -> bool {
         self.inner
-            .binary_search_by(|probe| probe.as_str().cmp(s))
+            .binary_search_by(|probe| case_fold_cmp(probe.as_ref(), s))
             .is_ok()
     }
 
-    /// Returns the number of strings in the set.
+    /// Returns the number of words in the set.
     pub fn len(&self) -> usize {
         self.inner.len()
     }
@@ -43,8 +47,8 @@ impl Default for WordSet {
 }
 
 impl IntoIterator for WordSet {
-    type Item = String;
-    type IntoIter = <SortedSet<String> as IntoIterator>::IntoIter;
+    type Item = Word;
+    type IntoIter = <SortedSet<Word> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
@@ -54,7 +58,7 @@ impl IntoIterator for WordSet {
 impl std::iter::FromIterator<String> for WordSet {
     fn from_iter<I: IntoIterator<Item = String>>(iter: I) -> Self {
         Self {
-            inner: iter.into_iter().collect(),
+            inner: iter.into_iter().map(Word::from).collect(),
         }
     }
 }
@@ -99,13 +103,13 @@ mod tests {
         }
 
         #[test]
-        fn test_collect_maintains_sorted_order() {
-            let set: WordSet = vec!["cherry", "apple", "banana"]
+        fn test_collect_maintains_case_fold_order() {
+            let set: WordSet = vec!["cherry", "Apple", "apple", "banana"]
                 .into_iter()
                 .map(String::from)
                 .collect();
-            let collected: Vec<String> = set.into_iter().collect();
-            assert_eq!(collected, vec!["apple", "banana", "cherry"]);
+            let collected: Vec<String> = set.into_iter().map(|w| w.0).collect();
+            assert_eq!(collected, vec!["apple", "Apple", "banana", "cherry"]);
         }
     }
 
@@ -153,8 +157,18 @@ mod tests {
                 .into_iter()
                 .map(String::from)
                 .collect();
-            let collected: Vec<String> = set.into_iter().collect();
+            let collected: Vec<String> = set.into_iter().map(|w| w.0).collect();
             assert_eq!(collected, vec!["a", "b", "c"]);
+        }
+
+        #[test]
+        fn test_into_iterator_case_fold_order() {
+            let set: WordSet = vec!["Apple", "apple", "APPLE"]
+                .into_iter()
+                .map(String::from)
+                .collect();
+            let collected: Vec<String> = set.into_iter().map(|w| w.0).collect();
+            assert_eq!(collected, vec!["apple", "Apple", "APPLE"]);
         }
     }
 
@@ -174,7 +188,7 @@ mod tests {
             assert_eq!(set.len(), 1);
             assert!(set.contains("only"));
 
-            let collected: Vec<String> = set.into_iter().collect();
+            let collected: Vec<String> = set.into_iter().map(|w| w.0).collect();
             assert_eq!(collected, vec!["only"]);
         }
 

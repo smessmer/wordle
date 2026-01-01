@@ -2,6 +2,8 @@
 
 use std::io;
 
+use crate::wordlist::Word;
+
 /// An iterator that filters items based on a predicate.
 ///
 /// Only applies the predicate to `Ok` values; errors pass through unchanged.
@@ -18,17 +20,17 @@ impl<I, F> FilterStream<I, F> {
 
 impl<I, F> Iterator for FilterStream<I, F>
 where
-    I: Iterator<Item = io::Result<String>>,
+    I: Iterator<Item = io::Result<Word>>,
     F: FnMut(&str) -> bool,
 {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.inner.next()? {
-                Ok(s) => {
-                    if (self.predicate)(&s) {
-                        return Some(Ok(s));
+                Ok(w) => {
+                    if (self.predicate)(w.as_ref()) {
+                        return Some(Ok(w));
                     }
                     // Filtered out, continue to next
                 }
@@ -44,14 +46,14 @@ mod tests {
 
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
-    ) -> impl Iterator<Item = io::Result<String>> {
-        items.into_iter().map(|s| Ok(s.to_string()))
+    ) -> impl Iterator<Item = io::Result<Word>> {
+        items.into_iter().map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]
     fn test_filter_by_length() {
         let stream = FilterStream::new(ok_iter(["a", "bb", "ccc", "dddd"]), |s: &str| s.len() == 3);
-        let collected: Vec<String> = stream.map(|r: io::Result<String>| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["ccc"]);
     }
 
@@ -61,30 +63,30 @@ mod tests {
             ok_iter(["apple", "apricot", "banana", "avocado"]),
             |s: &str| s.starts_with('a'),
         );
-        let collected: Vec<String> = stream.map(|r: io::Result<String>| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "apricot", "avocado"]);
     }
 
     #[test]
     fn test_filter_all() {
         let stream = FilterStream::new(ok_iter(["hello", "world"]), |_: &str| false);
-        let collected: Vec<String> = stream.map(|r: io::Result<String>| r.unwrap()).collect();
+        let collected: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
     }
 
     #[test]
     fn test_filter_none() {
         let stream = FilterStream::new(ok_iter(["hello", "world"]), |_: &str| true);
-        let collected: Vec<String> = stream.map(|r: io::Result<String>| r.unwrap()).collect();
+        let collected: Vec<String> = stream.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["hello", "world"]);
     }
 
     #[test]
     fn test_filter_preserves_errors() {
-        let items: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let items: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "test error")),
-            Ok("banana".to_string()),
+            Ok(Word("banana".to_string())),
         ];
         let stream = FilterStream::new(items.into_iter(), |_: &str| true);
         let results: Vec<_> = stream.collect();
@@ -97,7 +99,7 @@ mod tests {
     #[test]
     fn test_filter_empty() {
         let stream = FilterStream::new(ok_iter([]), |_: &str| true);
-        let collected: Vec<String> = stream.map(|r: io::Result<String>| r.unwrap()).collect();
+        let collected: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
     }
 }

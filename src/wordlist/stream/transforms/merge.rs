@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::io;
 use std::iter::Peekable;
 
-use crate::wordlist::stream::ordering::case_fold_cmp;
+use crate::wordlist::Word;
 
 /// An iterator that merges two sorted streams into one sorted stream.
 ///
@@ -27,10 +27,10 @@ where
 
 impl<I1, I2> Iterator for MergeStream<I1, I2>
 where
-    I1: Iterator<Item = io::Result<String>>,
-    I2: Iterator<Item = io::Result<String>>,
+    I1: Iterator<Item = io::Result<Word>>,
+    I2: Iterator<Item = io::Result<Word>>,
 {
-    type Item = io::Result<String>;
+    type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match (self.left.peek(), self.right.peek()) {
@@ -38,7 +38,7 @@ where
             (Some(_), None) => self.left.next(),
             (None, Some(_)) => self.right.next(),
             (Some(Ok(l)), Some(Ok(r))) => {
-                if case_fold_cmp(l, r) != Ordering::Greater {
+                if l.cmp(r) != Ordering::Greater {
                     self.left.next()
                 } else {
                     self.right.next()
@@ -57,8 +57,8 @@ mod tests {
 
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
-    ) -> impl Iterator<Item = io::Result<String>> {
-        items.into_iter().map(|s| Ok(s.to_string()))
+    ) -> impl Iterator<Item = io::Result<Word>> {
+        items.into_iter().map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod tests {
         let left = ok_iter(["apple", "banana"]).peekable();
         let right = ok_iter(["cherry", "date"]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry", "date"]);
     }
 
@@ -75,7 +75,7 @@ mod tests {
         let left = ok_iter(["apple", "cherry"]).peekable();
         let right = ok_iter(["banana", "date"]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana", "cherry", "date"]);
     }
 
@@ -84,7 +84,7 @@ mod tests {
         let left = ok_iter(["apple", "banana"]).peekable();
         let right = ok_iter(["apple", "cherry"]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         // Both "apple"s are emitted (left first due to <=)
         assert_eq!(collected, vec!["apple", "apple", "banana", "cherry"]);
     }
@@ -95,7 +95,7 @@ mod tests {
         let left = ok_iter(["apple", "APPLE"]).peekable();
         let right = ok_iter(["Apple", "banana"]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "Apple", "APPLE", "banana"]);
     }
 
@@ -104,7 +104,7 @@ mod tests {
         let left = ok_iter([]).peekable();
         let right = ok_iter(["apple", "banana"]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana"]);
     }
 
@@ -113,7 +113,7 @@ mod tests {
         let left = ok_iter(["apple", "banana"]).peekable();
         let right = ok_iter([]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<String> = merged.map(|r| r.unwrap().0).collect();
         assert_eq!(collected, vec!["apple", "banana"]);
     }
 
@@ -122,30 +122,30 @@ mod tests {
         let left = ok_iter([]).peekable();
         let right = ok_iter([]).peekable();
         let merged = MergeStream::new(left, right);
-        let collected: Vec<String> = merged.map(|r| r.unwrap()).collect();
+        let collected: Vec<Word> = merged.map(|r| r.unwrap()).collect();
         assert!(collected.is_empty());
     }
 
     #[test]
     fn test_merge_preserves_errors() {
-        let left: Vec<io::Result<String>> = vec![
-            Ok("apple".to_string()),
+        let left: Vec<io::Result<Word>> = vec![
+            Ok(Word("apple".to_string())),
             Err(io::Error::new(io::ErrorKind::Other, "left error")),
-            Ok("cherry".to_string()),
+            Ok(Word("cherry".to_string())),
         ];
-        let right: Vec<io::Result<String>> = vec![
-            Ok("banana".to_string()),
-            Ok("date".to_string()),
+        let right: Vec<io::Result<Word>> = vec![
+            Ok(Word("banana".to_string())),
+            Ok(Word("date".to_string())),
         ];
         let merged = MergeStream::new(left.into_iter().peekable(), right.into_iter().peekable());
         let results: Vec<_> = merged.collect();
 
         // Error is emitted immediately when encountered (after apple)
         assert_eq!(results.len(), 5);
-        assert_eq!(results[0].as_ref().unwrap(), "apple");
+        assert_eq!(results[0].as_ref().unwrap().0, "apple");
         assert!(results[1].is_err()); // left error emitted immediately
-        assert_eq!(results[2].as_ref().unwrap(), "banana");
-        assert_eq!(results[3].as_ref().unwrap(), "cherry");
-        assert_eq!(results[4].as_ref().unwrap(), "date");
+        assert_eq!(results[2].as_ref().unwrap().0, "banana");
+        assert_eq!(results[3].as_ref().unwrap().0, "cherry");
+        assert_eq!(results[4].as_ref().unwrap().0, "date");
     }
 }
