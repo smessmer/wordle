@@ -32,7 +32,7 @@
 
 pub mod ordering;
 mod sources;
-mod terminal;
+mod sinks;
 mod transforms;
 mod word_stream;
 
@@ -239,7 +239,7 @@ where
     /// # Ok::<(), std::io::Error>(())
     /// ```
     pub fn collect_to_set(self) -> io::Result<WordSet> {
-        terminal::collect_to_set(self.into_inner())
+        sinks::collect_to_set(self.into_inner())
     }
 
     /// Writes all items to a file, one per line.
@@ -263,7 +263,7 @@ where
     /// # Ok::<(), std::io::Error>(())
     /// ```
     pub fn write_to_file(self, path: impl AsRef<Path>) -> io::Result<()> {
-        terminal::write_to_file(self.into_inner(), path)
+        sinks::write_to_file(self.into_inner(), path)
     }
 }
 
