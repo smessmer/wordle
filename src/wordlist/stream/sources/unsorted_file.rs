@@ -71,7 +71,7 @@ pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<WordStream<Unsor
     // Sort using case-fold ordering
     words.sort_by(|a, b| case_fold_cmp(a, b));
 
-    Ok(WordStream::new_unchecked(UnsortedFileWords::new(words)))
+    Ok(WordStream::new(UnsortedFileWords::new(words)))
 }
 
 #[cfg(test)]

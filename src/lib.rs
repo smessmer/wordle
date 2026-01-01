@@ -1,3 +1,3 @@
 pub mod wordlist;
 
-pub use wordlist::{Result, UniqueStringSet, UniqueStringSetError};
+pub use wordlist::{Result, WordSet, WordSetError};

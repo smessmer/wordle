@@ -4,19 +4,19 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-use crate::wordlist::UniqueStringSet;
+use crate::wordlist::WordSet;
 
-/// Collects an iterator of `io::Result<String>` into a `UniqueStringSet`.
+/// Collects an iterator of `io::Result<String>` into a `WordSet`.
 ///
 /// # Errors
 ///
 /// Returns an error if any item in the iterator is an error.
-pub fn collect_to_set<I>(iter: I) -> io::Result<UniqueStringSet>
+pub fn collect_to_set<I>(iter: I) -> io::Result<WordSet>
 where
     I: Iterator<Item = io::Result<String>>,
 {
     let words: Result<Vec<String>, io::Error> = iter.collect();
-    Ok(UniqueStringSet::from_iter(words?))
+    Ok(WordSet::from_iter(words?))
 }
 
 /// Writes items from an iterator to a file, one per line.

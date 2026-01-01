@@ -44,7 +44,7 @@ use std::io;
 use std::iter::Peekable;
 use std::path::Path;
 
-use crate::wordlist::UniqueStringSet;
+use crate::wordlist::WordSet;
 use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
 
 impl WordStream<SortedFileLines> {
@@ -126,7 +126,7 @@ where
     where
         F: FnMut(&str) -> bool,
     {
-        WordStream::new_unchecked(FilterStream::new(self.into_inner(), predicate))
+        WordStream::new(FilterStream::new(self.into_inner(), predicate))
     }
 
     /// Converts all items to lowercase.
@@ -145,7 +145,7 @@ where
     /// # Ok::<(), std::io::Error>(())
     /// ```
     pub fn to_lowercase(self) -> WordStream<LowercaseStream<Peekable<I>>> {
-        WordStream::new_unchecked(LowercaseStream::new(self.into_inner()))
+        WordStream::new(LowercaseStream::new(self.into_inner()))
     }
 
     /// Removes consecutive duplicates using case-fold equality.
@@ -166,7 +166,7 @@ where
     /// # Ok::<(), std::io::Error>(())
     /// ```
     pub fn dedup(self) -> WordStream<DedupStream<Peekable<I>>> {
-        WordStream::new_unchecked(DedupStream::new(self.into_inner()))
+        WordStream::new(DedupStream::new(self.into_inner()))
     }
 
     /// Merges this stream with another sorted stream.
@@ -191,10 +191,10 @@ where
     where
         I2: Iterator<Item = io::Result<String>>,
     {
-        WordStream::new_unchecked(MergeStream::new(self.into_inner(), other.into_inner()))
+        WordStream::new(MergeStream::new(self.into_inner(), other.into_inner()))
     }
 
-    /// Collects all items into a `UniqueStringSet`.
+    /// Collects all items into a `WordSet`.
     ///
     /// # Errors
     ///
@@ -210,7 +210,7 @@ where
     ///     .collect_to_set()?;
     /// # Ok::<(), std::io::Error>(())
     /// ```
-    pub fn collect_to_set(self) -> io::Result<UniqueStringSet> {
+    pub fn collect_to_set(self) -> io::Result<WordSet> {
         terminal::collect_to_set(self.into_inner())
     }
 
