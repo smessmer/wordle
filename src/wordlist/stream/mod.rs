@@ -44,7 +44,7 @@ use std::io;
 use std::path::Path;
 
 use crate::wordlist::UniqueStringSet;
-use transforms::{DedupStream, FilterStream, LowercaseStream};
+use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
 
 impl WordStream<SortedFileLines> {
     /// Creates a WordStream from a pre-sorted file.
@@ -166,6 +166,31 @@ where
     /// ```
     pub fn dedup(self) -> WordStream<DedupStream<I>> {
         WordStream::new_unchecked(DedupStream::new(self.into_inner()))
+    }
+
+    /// Merges this stream with another sorted stream.
+    ///
+    /// Both streams must be sorted in case-fold order. The resulting stream
+    /// maintains the sorted order by comparing heads of both streams and
+    /// emitting the smaller one.
+    ///
+    /// Duplicates are preserved (not deduplicated).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::from_sorted_file;
+    ///
+    /// let merged = from_sorted_file("words1.txt")?
+    ///     .merge(from_sorted_file("words2.txt")?)
+    ///     .collect_to_set()?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn merge<I2>(self, other: WordStream<I2>) -> WordStream<MergeStream<I, I2>>
+    where
+        I2: Iterator<Item = io::Result<String>>,
+    {
+        WordStream::new_unchecked(MergeStream::new(self.into_inner(), other.into_inner()))
     }
 
     /// Collects all items into a `UniqueStringSet`.
