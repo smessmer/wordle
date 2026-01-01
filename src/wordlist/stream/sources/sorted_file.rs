@@ -1,28 +1,31 @@
-//! Lazy file reading for pre-sorted word files.
+//! Lazy reading for pre-sorted word sources.
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Lines};
 use std::path::Path;
 
+use zstd::Decoder;
+
 use crate::wordlist::stream::word_stream::WordStream;
 use crate::wordlist::Word;
 
-/// Iterator that reads lines from a file, trimming whitespace and skipping empty lines.
+/// Iterator that reads lines from any `BufRead` source, trimming whitespace and skipping empty lines.
 ///
-/// This is the underlying iterator type for `WordStream::from_sorted_file()`.
-pub struct SortedFileLines {
-    lines: Lines<BufReader<File>>,
+/// This is the underlying iterator type for sorted word streams.
+pub struct SortedLines<R: BufRead> {
+    lines: Lines<R>,
 }
 
-impl SortedFileLines {
-    fn new(file: File) -> Self {
+impl<R: BufRead> SortedLines<R> {
+    /// Creates a new `SortedLines` iterator from a buffered reader.
+    pub fn new(reader: R) -> Self {
         Self {
-            lines: BufReader::new(file).lines(),
+            lines: reader.lines(),
         }
     }
 }
 
-impl Iterator for SortedFileLines {
+impl<R: BufRead> Iterator for SortedLines<R> {
     type Item = io::Result<Word>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -39,6 +42,17 @@ impl Iterator for SortedFileLines {
             }
         }
     }
+}
+
+/// Creates a WordStream from any buffered reader containing pre-sorted words.
+///
+/// Reads lines lazily. Panics during iteration if the data is not sorted in case-fold order.
+///
+/// # Panics
+///
+/// Panics during iteration if the data is not sorted.
+pub fn from_sorted_reader<R: BufRead>(reader: R) -> WordStream<SortedLines<R>> {
+    WordStream::new(SortedLines::new(reader))
 }
 
 /// Creates a WordStream from a pre-sorted file.
@@ -65,9 +79,43 @@ impl Iterator for SortedFileLines {
 /// }
 /// # Ok::<(), std::io::Error>(())
 /// ```
-pub fn from_sorted_file(path: impl AsRef<Path>) -> io::Result<WordStream<SortedFileLines>> {
+pub fn from_sorted_file(
+    path: impl AsRef<Path>,
+) -> io::Result<WordStream<SortedLines<BufReader<File>>>> {
     let file = File::open(path)?;
-    Ok(WordStream::new(SortedFileLines::new(file)))
+    Ok(from_sorted_reader(BufReader::new(file)))
+}
+
+/// Creates a WordStream from a pre-sorted zstd-compressed file.
+///
+/// Reads lines lazily, decompressing on the fly.
+/// Panics during iteration if the file is not sorted in case-fold order.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be opened or is not valid zstd.
+///
+/// # Panics
+///
+/// Panics during iteration if the file is not sorted.
+///
+/// # Example
+///
+/// ```no_run
+/// use wordle::wordlist::stream::from_sorted_zst_file;
+///
+/// let stream = from_sorted_zst_file("words.zst")?;
+/// for word in stream {
+///     println!("{}", word?);
+/// }
+/// # Ok::<(), std::io::Error>(())
+/// ```
+pub fn from_sorted_zst_file(
+    path: impl AsRef<Path>,
+) -> io::Result<WordStream<SortedLines<BufReader<Decoder<'static, BufReader<File>>>>>> {
+    let file = File::open(path)?;
+    let decoder = Decoder::new(file)?;
+    Ok(from_sorted_reader(BufReader::new(decoder)))
 }
 
 #[cfg(test)]
@@ -85,6 +133,21 @@ mod tests {
         ));
         let mut file = File::create(&path).unwrap();
         write!(file, "{}", content).unwrap();
+        path
+    }
+
+    fn create_temp_zst_file(content: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "test_sorted_file_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let file = File::create(&path).unwrap();
+        let mut encoder = zstd::Encoder::new(file, 0).unwrap();
+        write!(encoder, "{}", content).unwrap();
+        encoder.finish().unwrap();
         path
     }
 
@@ -137,5 +200,37 @@ mod tests {
         let words: Vec<Word> = stream.map(|r| r.unwrap()).collect();
         assert!(words.is_empty());
         std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_read_sorted_zst_file() {
+        let path = create_temp_zst_file("apple\nbanana\ncherry\n");
+        let stream = from_sorted_zst_file(&path).unwrap();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
+        assert_eq!(words, vec!["apple", "banana", "cherry"]);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_zst_skips_empty_lines() {
+        let path = create_temp_zst_file("apple\n\nbanana\n  \ncherry\n");
+        let stream = from_sorted_zst_file(&path).unwrap();
+        let words: Vec<String> = stream.map(|r| r.unwrap().0).collect();
+        assert_eq!(words, vec!["apple", "banana", "cherry"]);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    #[should_panic(expected = "not sorted")]
+    fn test_unsorted_zst_file_panics() {
+        let path = create_temp_zst_file("banana\napple\n");
+        let stream = from_sorted_zst_file(&path).unwrap();
+        let _: Vec<_> = stream.collect();
+    }
+
+    #[test]
+    fn test_zst_file_not_found() {
+        let result = from_sorted_zst_file("/nonexistent/path/to/file.zst");
+        assert!(result.is_err());
     }
 }

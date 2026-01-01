@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 sorted-vec = "0.8"
+zstd = "0.13"

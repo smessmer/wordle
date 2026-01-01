@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
+use zstd::Encoder;
+
 use crate::wordlist::{Word, WordSet};
 
 /// Collects an iterator of `io::Result<Word>` into a `WordSet`.
@@ -19,6 +21,24 @@ where
     Ok(words?.into_iter().map(|w| w.0).collect())
 }
 
+/// Writes items from an iterator to any writer, one per line.
+///
+/// # Errors
+///
+/// Returns an error if writing fails or if any item in the iterator is an error.
+pub fn write_to_writer<I, W>(iter: I, mut writer: W) -> io::Result<()>
+where
+    I: Iterator<Item = io::Result<Word>>,
+    W: Write,
+{
+    for item in iter {
+        let w = item?;
+        writeln!(writer, "{}", w.0)?;
+    }
+    writer.flush()?;
+    Ok(())
+}
+
 /// Writes items from an iterator to a file, one per line.
 ///
 /// Uses buffered writing for efficiency.
@@ -32,20 +52,31 @@ where
     I: Iterator<Item = io::Result<Word>>,
 {
     let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
+    write_to_writer(iter, BufWriter::new(file))
+}
 
-    for item in iter {
-        let w = item?;
-        writeln!(writer, "{}", w.0)?;
-    }
-
-    writer.flush()?;
-    Ok(())
+/// Writes items from an iterator to a zstd-compressed file, one per line.
+///
+/// Uses buffered writing and default compression level for efficiency.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be created or written to,
+/// or if any item in the iterator is an error.
+pub fn write_to_zst_file<I>(iter: I, path: impl AsRef<Path>) -> io::Result<()>
+where
+    I: Iterator<Item = io::Result<Word>>,
+{
+    let file = File::create(path)?;
+    let writer = BufWriter::new(file);
+    let encoder = Encoder::new(writer, 19)?.auto_finish();
+    write_to_writer(iter, encoder)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
 
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
@@ -137,6 +168,50 @@ mod tests {
 
         let result = write_to_file(items.into_iter(), &path);
         assert!(result.is_err());
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_write_to_zst_file() {
+        let path = std::env::temp_dir().join(format!(
+            "test_write_stream_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        write_to_zst_file(ok_iter(["apple", "banana", "cherry"]), &path).unwrap();
+
+        // Read and decompress to verify
+        let file = File::open(&path).unwrap();
+        let mut decoder = zstd::Decoder::new(file).unwrap();
+        let mut content = String::new();
+        decoder.read_to_string(&mut content).unwrap();
+        assert_eq!(content, "apple\nbanana\ncherry\n");
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_write_to_zst_file_empty() {
+        let path = std::env::temp_dir().join(format!(
+            "test_write_empty_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        write_to_zst_file(ok_iter([]), &path).unwrap();
+
+        // Read and decompress to verify
+        let file = File::open(&path).unwrap();
+        let mut decoder = zstd::Decoder::new(file).unwrap();
+        let mut content = String::new();
+        decoder.read_to_string(&mut content).unwrap();
+        assert!(content.is_empty());
 
         std::fs::remove_file(path).ok();
     }

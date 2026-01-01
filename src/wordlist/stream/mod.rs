@@ -19,6 +19,13 @@
 //!     .to_lowercase()
 //!     .dedup()
 //!     .write_to_file("output.txt")?;
+//!
+//! // Load from zstd-compressed file, process, write to compressed file
+//! use wordle::wordlist::stream::{from_sorted_zst_file, from_unsorted_zst_file};
+//!
+//! from_sorted_zst_file("words.zst")?
+//!     .filter(|w| w.len() == 5)
+//!     .write_to_zst_file("filtered.zst")?;
 //! # Ok::<(), std::io::Error>(())
 //! ```
 //!
@@ -36,12 +43,18 @@ mod transforms;
 mod word_stream;
 
 pub use super::ordering::case_fold_cmp;
-pub use sources::{from_sorted_file, from_unsorted_file, SortedFileLines, UnsortedFileWords};
+pub use sources::{
+    from_sorted_file, from_sorted_reader, from_sorted_zst_file, from_unsorted_file,
+    from_unsorted_reader, from_unsorted_zst_file, SortedLines, UnsortedWords,
+};
 pub use word_stream::WordStream;
 
-use std::io;
+use std::fs::File;
+use std::io::{self, BufReader};
 use std::iter::Peekable;
 use std::path::Path;
+
+use zstd::Decoder;
 
 use crate::wordlist::{Word, WordSet};
 use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
@@ -52,7 +65,7 @@ type WordSetIter = std::iter::Map<
     fn(Word) -> io::Result<Word>,
 >;
 
-impl WordStream<SortedFileLines> {
+impl WordStream<SortedLines<BufReader<File>>> {
     /// Creates a WordStream from a pre-sorted file.
     ///
     /// Reads lines lazily without loading the entire file into memory.
@@ -82,7 +95,37 @@ impl WordStream<SortedFileLines> {
     }
 }
 
-impl WordStream<UnsortedFileWords> {
+impl WordStream<SortedLines<BufReader<Decoder<'static, BufReader<File>>>>> {
+    /// Creates a WordStream from a pre-sorted zstd-compressed file.
+    ///
+    /// Reads lines lazily, decompressing on the fly.
+    /// Panics during iteration if the file is not sorted in case-fold order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be opened or is not valid zstd.
+    ///
+    /// # Panics
+    ///
+    /// Panics during iteration if the file is not sorted.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::WordStream;
+    ///
+    /// let stream = WordStream::from_sorted_zst_file("words.zst")?;
+    /// for word in stream {
+    ///     println!("{}", word?);
+    /// }
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn from_sorted_zst_file(path: impl AsRef<Path>) -> io::Result<Self> {
+        sources::from_sorted_zst_file(path)
+    }
+}
+
+impl WordStream<UnsortedWords> {
     /// Creates a WordStream from an unsorted file.
     ///
     /// Loads the entire file into memory, sorts it using case-fold ordering,
@@ -105,6 +148,30 @@ impl WordStream<UnsortedFileWords> {
     /// ```
     pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<Self> {
         sources::from_unsorted_file(path)
+    }
+
+    /// Creates a WordStream from an unsorted zstd-compressed file.
+    ///
+    /// Loads and decompresses the entire file into memory, sorts it using case-fold ordering,
+    /// and returns a stream over the sorted data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be opened, is not valid zstd, or cannot be read.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::WordStream;
+    ///
+    /// let stream = WordStream::from_unsorted_zst_file("raw_words.zst")?;
+    /// for word in stream {
+    ///     println!("{}", word?);
+    /// }
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn from_unsorted_zst_file(path: impl AsRef<Path>) -> io::Result<Self> {
+        sources::from_unsorted_zst_file(path)
     }
 }
 
@@ -267,12 +334,37 @@ where
     pub fn write_to_file(self, path: impl AsRef<Path>) -> io::Result<()> {
         sinks::write_to_file(self.into_inner(), path)
     }
+
+    /// Writes all items to a zstd-compressed file, one per line.
+    ///
+    /// Uses buffered writing and default compression level for efficiency.
+    /// This is a streaming operation that doesn't require loading all items into memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be created, written to,
+    /// or if any item in the stream is an I/O error.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::from_sorted_file;
+    ///
+    /// from_sorted_file("words.txt")?
+    ///     .filter(|w| w.chars().all(|c| c.is_alphabetic()))
+    ///     .write_to_zst_file("alphabetic_words.zst")?;
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn write_to_zst_file(self, path: impl AsRef<Path>) -> io::Result<()> {
+        sinks::write_to_zst_file(self.into_inner(), path)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::io::{Read as _, Write};
+    use zstd::Encoder;
 
     fn create_temp_file(content: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
@@ -284,6 +376,21 @@ mod tests {
         ));
         let mut file = std::fs::File::create(&path).unwrap();
         write!(file, "{}", content).unwrap();
+        path
+    }
+
+    fn create_temp_zst_file(content: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "test_stream_integration_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let file = std::fs::File::create(&path).unwrap();
+        let mut encoder = Encoder::new(file, 0).unwrap();
+        write!(encoder, "{}", content).unwrap();
+        encoder.finish().unwrap();
         path
     }
 
@@ -363,5 +470,97 @@ mod tests {
 
         std::fs::remove_file(input_path).ok();
         std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_full_pipeline_sorted_zst_file() {
+        let path = create_temp_zst_file("apple\nApple\nAPPLE\nbanana\nBanana\ncherry\n");
+        let set = from_sorted_zst_file(&path)
+            .unwrap()
+            .to_lowercase()
+            .dedup()
+            .collect_to_set()
+            .unwrap();
+
+        assert_eq!(set.len(), 3);
+        assert!(set.contains("apple"));
+        assert!(set.contains("banana"));
+        assert!(set.contains("cherry"));
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_full_pipeline_unsorted_zst_file() {
+        let path = create_temp_zst_file("cherry\nAPPLE\napple\nbanana\nApple\n");
+        let set = from_unsorted_zst_file(&path)
+            .unwrap()
+            .to_lowercase()
+            .dedup()
+            .collect_to_set()
+            .unwrap();
+
+        assert_eq!(set.len(), 3);
+        assert!(set.contains("apple"));
+        assert!(set.contains("banana"));
+        assert!(set.contains("cherry"));
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_write_to_zst_file() {
+        let input_path = create_temp_file("apple\nbanana\ncherry\n");
+        let output_path = std::env::temp_dir().join(format!(
+            "test_write_output_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        from_sorted_file(&input_path)
+            .unwrap()
+            .filter(|w| w.starts_with('b') || w.starts_with('c'))
+            .write_to_zst_file(&output_path)
+            .unwrap();
+
+        // Read and decompress to verify
+        let file = File::open(&output_path).unwrap();
+        let mut decoder = Decoder::new(file).unwrap();
+        let mut content = String::new();
+        decoder.read_to_string(&mut content).unwrap();
+        assert_eq!(content, "banana\ncherry\n");
+
+        std::fs::remove_file(input_path).ok();
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_zst_roundtrip() {
+        // Write to zst, then read back and verify
+        let input_path = create_temp_file("apple\nbanana\ncherry\n");
+        let zst_path = std::env::temp_dir().join(format!(
+            "test_roundtrip_{}.zst",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        from_sorted_file(&input_path)
+            .unwrap()
+            .write_to_zst_file(&zst_path)
+            .unwrap();
+
+        let words: Vec<String> = from_sorted_zst_file(&zst_path)
+            .unwrap()
+            .map(|r| r.unwrap().0)
+            .collect();
+
+        assert_eq!(words, vec!["apple", "banana", "cherry"]);
+
+        std::fs::remove_file(input_path).ok();
+        std::fs::remove_file(zst_path).ok();
     }
 }
