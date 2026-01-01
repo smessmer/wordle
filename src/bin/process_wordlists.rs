@@ -1,6 +1,6 @@
 use std::io;
 use std::path::Path;
-use wordle::wordlist::stream::{from_unsorted_zst_file, WordStream};
+use wordle::wordlist::stream::{from_unsorted_zst_file, BoxedWordStream};
 
 struct OutputConfig {
     output_path: &'static str,
@@ -22,35 +22,32 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+/// Loads a single input file and applies the standard processing pipeline:
+/// filter to 5-char words, lowercase, dedup.
+fn process_input(path: &str) -> io::Result<BoxedWordStream> {
+    Ok(from_unsorted_zst_file(path)?
+        .filter(|w| w.chars().count() == 5)
+        .to_lowercase()
+        .dedup()
+        .boxed())
+}
+
 fn process_output(config: &OutputConfig) -> io::Result<()> {
     // Ensure output directory exists
     if let Some(parent) = Path::new(config.output_path).parent() {
         std::fs::create_dir_all(parent)?;
     }
 
-    // Load and merge all inputs into a WordSet, then stream from that
-    let mut combined = from_unsorted_zst_file(config.inputs[0])?
-        .filter(|w| w.chars().count() == 5)
-        .to_lowercase()
-        .dedup()
-        .collect_to_set()?;
+    // Process first input
+    let mut stream = process_input(config.inputs[0])?;
 
+    // Merge additional inputs
     for input in &config.inputs[1..] {
-        let additional = from_unsorted_zst_file(input)?
-            .filter(|w| w.chars().count() == 5)
-            .to_lowercase()
-            .dedup()
-            .collect_to_set()?;
-        // Merge by chaining iterators and collecting back into a WordSet
-        combined = combined
-            .into_iter()
-            .chain(additional)
-            .map(|w| w.0)
-            .collect();
+        stream = stream.merge(process_input(input)?);
     }
 
-    // Write the combined set to output
-    WordStream::from_word_set(combined).write_to_zst_file(config.output_path)?;
+    // Write merged result
+    stream.write_to_zst_file(config.output_path)?;
 
     println!("Processed: {}", config.output_path);
     Ok(())

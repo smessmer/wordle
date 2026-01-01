@@ -37,11 +37,13 @@
 //!
 //! This means `"apple" < "Apple" < "APPLE" < "banana"`.
 
+mod boxed;
 mod sinks;
 mod sources;
-mod transforms;
+pub(crate) mod transforms;
 mod word_stream;
 
+pub use boxed::BoxedWordStream;
 pub use super::ordering::case_fold_cmp;
 pub use sources::{
     from_sorted_file, from_sorted_reader, from_sorted_zst_file, from_unsorted_file,
