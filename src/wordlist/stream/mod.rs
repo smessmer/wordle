@@ -47,6 +47,9 @@ use std::path::Path;
 use crate::wordlist::WordSet;
 use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream};
 
+/// Type alias for the iterator produced by `WordStream::from_word_set`.
+type WordSetIter = std::iter::Map<std::vec::IntoIter<String>, fn(String) -> io::Result<String>>;
+
 impl WordStream<SortedFileLines> {
     /// Creates a WordStream from a pre-sorted file.
     ///
@@ -100,6 +103,31 @@ impl WordStream<UnsortedFileWords> {
     /// ```
     pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<Self> {
         sources::from_unsorted_file(path)
+    }
+}
+
+impl WordStream<WordSetIter> {
+    /// Creates a WordStream from a WordSet.
+    ///
+    /// Since WordSet is already sorted, this is an infallible operation
+    /// that wraps each string in `Ok()`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use wordle::wordlist::stream::{from_sorted_file, WordStream};
+    ///
+    /// // Load, filter, collect to set, then convert back to stream
+    /// let set = from_sorted_file("words.txt")?
+    ///     .filter(|w| w.len() == 5)
+    ///     .collect_to_set()?;
+    ///
+    /// // Convert set back to stream for further processing
+    /// let stream = WordStream::from_word_set(set);
+    /// # Ok::<(), std::io::Error>(())
+    /// ```
+    pub fn from_word_set(set: WordSet) -> Self {
+        WordStream::new(set.into_iter().map(Ok as fn(String) -> io::Result<String>))
     }
 }
 

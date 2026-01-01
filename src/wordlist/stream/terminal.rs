@@ -16,7 +16,7 @@ where
     I: Iterator<Item = io::Result<String>>,
 {
     let words: Result<Vec<String>, io::Error> = iter.collect();
-    Ok(WordSet::from_iter(words?))
+    Ok(words?.into_iter().collect())
 }
 
 /// Writes items from an iterator to a file, one per line.
