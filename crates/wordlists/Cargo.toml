@@ -1,0 +1,12 @@
+[package]
+name = "wordle-wordlists"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+csv.workspace = true
+sorted-vec.workspace = true
+zstd.workspace = true
+
+[[bin]]
+name = "process_wordlists"
