@@ -1,0 +1,7 @@
+[package]
+name = "wordle-wordlists-data"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+wordle-wordlists-processing = {path = "../wordlists-processing"}

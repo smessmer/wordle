@@ -1,5 +1,5 @@
 [package]
-name = "wordle-wordlists"
+name = "wordle-wordlists-processing"
 edition.workspace = true
 version.workspace = true
 

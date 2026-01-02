@@ -2,7 +2,7 @@
 
 use std::io;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 /// An iterator that removes consecutive duplicates using case-insensitive equality.
 ///

@@ -6,7 +6,7 @@ use std::path::Path;
 
 use zstd::Encoder;
 
-use crate::wordlist::{Word, WordSet};
+use crate::{Word, WordSet};
 
 /// Collects an iterator of `io::Result<Word>` into a `WordSet`.
 ///

@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::io;
 use std::iter::Peekable;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 /// An iterator that merges two sorted streams into one sorted stream.
 ///

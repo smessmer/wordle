@@ -2,7 +2,7 @@
 
 use std::io;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 /// An iterator that converts all strings to lowercase.
 ///

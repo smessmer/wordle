@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::io;
 use std::iter::Peekable;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 /// A stream of words, guaranteed to be sorted in case-fold order.
 ///

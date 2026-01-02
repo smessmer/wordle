@@ -1,7 +1,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use wordle_wordlists::wordlist::{Word, stream::{BoxedWordStream, WordStream}};
+use wordle_wordlists_processing::{Word, stream::{BoxedWordStream, WordStream}};
 
 struct OutputConfig {
     output_path: &'static str,
@@ -23,8 +23,8 @@ fn outputs() -> [OutputConfig; 1] {
         OutputConfig {
             output_path: "de.txt.zst",
             inputs: vec![
-                process_input_stream(wordle_wordlists::data::de::davidak::load().unwrap()),
-                process_input_stream(wordle_wordlists::data::de::dwds_lemmata::load().unwrap()),
+                process_input_stream(wordle_wordlists_data::de::davidak::load().unwrap()),
+                process_input_stream(wordle_wordlists_data::de::dwds_lemmata::load().unwrap()),
             ],
         },
         // Add more outputs here later
@@ -36,13 +36,13 @@ fn data_path() -> PathBuf {
 }
 
 fn process_input_stream(stream: WordStream<impl Iterator<Item=io::Result<Word>> + 'static>) -> BoxedWordStream {
-        return stream
-            .filter(|w| w.chars().count() == 5)
-            .filter_non_alphabetic()
-            .to_lowercase()
-            .dedup()
-            .boxed()
-    }
+    stream
+        .filter(|w| w.chars().count() == 5)
+        .filter_non_alphabetic()
+        .to_lowercase()
+        .dedup()
+        .boxed()
+}
 
 fn process_output(config: OutputConfig) -> io::Result<()> {
     let output_path = config.output_full_path();

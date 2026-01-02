@@ -6,8 +6,8 @@ use std::path::Path;
 
 use zstd::Decoder;
 
-use crate::wordlist::stream::word_stream::WordStream;
-use crate::wordlist::Word;
+use crate::stream::word_stream::WordStream;
+use crate::Word;
 
 /// Iterator that reads lines from any `BufRead` source, trimming whitespace and skipping empty lines.
 ///

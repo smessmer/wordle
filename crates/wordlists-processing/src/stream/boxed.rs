@@ -3,7 +3,7 @@
 use std::io;
 use std::path::Path;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 use super::sinks;
 use super::transforms::{

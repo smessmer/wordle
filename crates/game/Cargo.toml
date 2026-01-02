@@ -4,7 +4,8 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-wordle-wordlists = {path = "../wordlists"}
+wordle-wordlists-processing = {path = "../wordlists-processing"}
 
 [build-dependencies]
-wordle-wordlists = {path = "../wordlists"}
+wordle-wordlists-processing = {path = "../wordlists-processing"}
+wordle-wordlists-data = {path = "../wordlists-data"}

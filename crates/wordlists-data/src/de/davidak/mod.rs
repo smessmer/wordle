@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use crate::wordlist::stream::{from_txt_zstd, UnsortedWords, WordStream};
+use wordle_wordlists_processing::stream::{from_txt_zstd, UnsortedWords, WordStream};
 
 const DATA: &[u8] = include_bytes!("davidak.txt.zst");
 

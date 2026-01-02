@@ -2,7 +2,7 @@
 
 use std::io;
 
-use crate::wordlist::Word;
+use crate::Word;
 
 use super::FilterStream;
 

@@ -55,7 +55,7 @@ use std::path::Path;
 
 use zstd::Decoder;
 
-use crate::wordlist::{Word, WordSet};
+use crate::{Word, WordSet};
 use transforms::{filter_non_alphabetic, DedupStream, FilterStream, LowercaseStream, MergeStream};
 
 /// Type alias for the iterator produced by `WordStream::from_word_set`.

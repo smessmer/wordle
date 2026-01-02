@@ -4,8 +4,8 @@ use std::io::{self, BufRead, BufReader, Read};
 
 use zstd::Decoder;
 
-use crate::wordlist::stream::word_stream::WordStream;
-use crate::wordlist::Word;
+use crate::stream::word_stream::WordStream;
+use crate::Word;
 
 /// Iterator over words loaded from an unsorted source and sorted in memory.
 ///
