@@ -1,11 +1,11 @@
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
-use wordle_wordlists::wordlist::{Word, stream::{BoxedWordStream, WordStream, from_csv_zst_file, from_unsorted_zst_file}};
+use wordle_wordlists::wordlist::{Word, stream::{BoxedWordStream, WordStream}};
 
 struct OutputConfig {
     output_path: &'static str,
-    inputs: &'static [&'static str],
+    inputs: Vec<BoxedWordStream>,
 }
 
 impl OutputConfig {
@@ -13,21 +13,23 @@ impl OutputConfig {
         data_path().join(self.output_path)
     }
 
-    fn input_full_paths(&self) -> Vec<PathBuf> {
-        self.inputs.iter().map(|p| data_path().join(p)).collect()
+    fn into_inputs(self) -> Vec<BoxedWordStream> {
+        self.inputs
     }
 }
 
-const OUTPUTS: &[OutputConfig] = &[
-    OutputConfig {
-        output_path: "processed/de.txt.zst",
-        inputs: &[
-            "original/de/davidak.txt.zst",
-            "original/de/dwds_lemmata_2026-01-01.csv.zst",
-        ],
-    },
-    // Add more outputs here later
-];
+fn outputs() -> [OutputConfig; 1] {
+    [
+        OutputConfig {
+            output_path: "processed/de.txt.zst",
+            inputs: vec![
+                process_input_stream(wordle_wordlists::data::de::davidak::load().unwrap()),
+                process_input_stream(wordle_wordlists::data::de::dwds_lemmata::load().unwrap()),
+            ],
+        },
+        // Add more outputs here later
+    ]
+}
 
 fn data_path() -> PathBuf {
     std::env::current_exe().unwrap()
@@ -39,18 +41,6 @@ fn data_path() -> PathBuf {
     .join("crates/wordlists/data")
 }
 
-/// Loads a single input file and applies the standard processing pipeline:
-/// filter to 5-char words, filter non-alphabetic, lowercase, dedup.
-fn process_input_file(path: &Path) -> io::Result<BoxedWordStream> {
-    let processed = if path.to_str().unwrap().contains(".csv") {
-        process_input_stream(from_csv_zst_file(path)?)
-    } else {
-        process_input_stream(from_unsorted_zst_file(path)?)
-    };
-
-    Ok(processed)
-}
-
 fn process_input_stream(stream: WordStream<impl Iterator<Item=io::Result<Word>> + 'static>) -> BoxedWordStream {
         return stream
             .filter(|w| w.chars().count() == 5)
@@ -60,9 +50,9 @@ fn process_input_stream(stream: WordStream<impl Iterator<Item=io::Result<Word>> 
             .boxed()
     }
 
-fn process_output(config: &OutputConfig) -> io::Result<()> {
-    let input_paths = config.input_full_paths();
+fn process_output(config: OutputConfig) -> io::Result<()> {
     let output_path = config.output_full_path();
+    let mut inputs = config.into_inputs().into_iter();
 
     println!("Processing: {}", output_path.display());
 
@@ -72,11 +62,11 @@ fn process_output(config: &OutputConfig) -> io::Result<()> {
     }
 
     // Process first input
-    let mut stream = process_input_file(&input_paths[0])?;
+    let mut stream = inputs.next().expect("At least one input required");
 
     // Merge additional inputs
-    for input in &input_paths[1..] {
-        stream = stream.merge(process_input_file(&input)?);
+    for input in inputs {
+        stream = stream.merge(input);
     }
 
     stream = stream.dedup();
@@ -89,7 +79,7 @@ fn process_output(config: &OutputConfig) -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    for config in OUTPUTS {
+    for config in outputs() {
         process_output(config)?;
     }
     Ok(())
