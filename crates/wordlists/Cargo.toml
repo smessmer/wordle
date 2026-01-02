@@ -7,6 +7,3 @@ version.workspace = true
 csv.workspace = true
 sorted-vec.workspace = true
 zstd.workspace = true
-
-[[bin]]
-name = "process_wordlists"

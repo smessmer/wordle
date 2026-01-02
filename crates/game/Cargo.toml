@@ -3,5 +3,8 @@ name = "wordle-game"
 edition.workspace = true
 version.workspace = true
 
+[dependencies]
+wordle-wordlists = {path = "../wordlists"}
+
 [build-dependencies]
 wordle-wordlists = {path = "../wordlists"}

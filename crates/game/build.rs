@@ -1,5 +1,5 @@
 use std::io;
-use std::path::{PathBuf};
+use std::path::{Path, PathBuf};
 
 use wordle_wordlists::wordlist::{Word, stream::{BoxedWordStream, WordStream}};
 
@@ -21,7 +21,7 @@ impl OutputConfig {
 fn outputs() -> [OutputConfig; 1] {
     [
         OutputConfig {
-            output_path: "processed/de.txt.zst",
+            output_path: "de.txt.zst",
             inputs: vec![
                 process_input_stream(wordle_wordlists::data::de::davidak::load().unwrap()),
                 process_input_stream(wordle_wordlists::data::de::dwds_lemmata::load().unwrap()),
@@ -32,13 +32,7 @@ fn outputs() -> [OutputConfig; 1] {
 }
 
 fn data_path() -> PathBuf {
-    std::env::current_exe().unwrap()
-    // go out of target dir
-    .parent().unwrap()
-    .parent().unwrap()
-    .parent().unwrap()
-    // and into the data dir
-    .join("crates/wordlists/data")
+    Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("wordlists")
 }
 
 fn process_input_stream(stream: WordStream<impl Iterator<Item=io::Result<Word>> + 'static>) -> BoxedWordStream {
