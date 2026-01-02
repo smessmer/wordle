@@ -1,0 +1,7 @@
+[package]
+name = "wordle-game"
+edition.workspace = true
+version.workspace = true
+
+[build-dependencies]
+wordle-wordlists = {path = "../wordlists"}
