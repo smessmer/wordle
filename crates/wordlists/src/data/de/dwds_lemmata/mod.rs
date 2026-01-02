@@ -1,5 +1,9 @@
-use crate::{data::data_path, wordlist::stream::{UnsortedWords, WordStream, from_csv_zst_file}};
+use std::io::Cursor;
 
-pub fn load() -> Result<WordStream<UnsortedWords>, std::io::Error>{
-    from_csv_zst_file(data_path().join("de/dwds_lemmata/dwds_lemmata_2026-01-01.csv.zst"))
+use crate::wordlist::stream::{from_csv_zstd, UnsortedWords, WordStream};
+
+const DATA: &[u8] = include_bytes!("dwds_lemmata_2026-01-01.csv.zst");
+
+pub fn load() -> Result<WordStream<UnsortedWords>, std::io::Error> {
+    from_csv_zstd(Cursor::new(DATA))
 }

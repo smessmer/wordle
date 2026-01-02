@@ -47,12 +47,12 @@ where
     /// # Example
     ///
     /// ```no_run
-    /// use wordle::wordlist::stream::from_unsorted_zst_file;
+    /// use wordle::wordlist::stream::from_sorted_zst_file;
     ///
     /// let inputs = ["a.zst", "b.zst"];
-    /// let mut stream = from_unsorted_zst_file(inputs[0])?.boxed();
+    /// let mut stream = from_sorted_zst_file(inputs[0])?.boxed();
     /// for input in &inputs[1..] {
-    ///     stream = stream.merge(from_unsorted_zst_file(input)?.boxed());
+    ///     stream = stream.merge(from_sorted_zst_file(input)?.boxed());
     /// }
     /// # Ok::<(), std::io::Error>(())
     /// ```

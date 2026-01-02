@@ -7,27 +7,24 @@
 //! # Example
 //!
 //! ```no_run
-//! use wordle::wordlist::stream::{from_sorted_file, from_unsorted_file};
+//! use wordle::wordlist::stream::from_sorted_file;
 //!
 //! // Load a sorted file, filter to 5-letter words, collect
 //! let words = from_sorted_file("words.txt")?
 //!     .filter(|w| w.len() == 5)
 //!     .collect_to_set()?;
 //!
-//! // Load unsorted, normalize, deduplicate, write
-//! from_unsorted_file("raw.txt")?
-//!     .to_lowercase()
-//!     .dedup()
-//!     .write_to_file("output.txt")?;
-//!
-//! // Load from zstd-compressed file, process, write to compressed file
-//! use wordle::wordlist::stream::{from_sorted_zst_file, from_unsorted_zst_file};
+//! // Load from zstd-compressed sorted file, process, write to compressed file
+//! use wordle::wordlist::stream::from_sorted_zst_file;
 //!
 //! from_sorted_zst_file("words.zst")?
 //!     .filter(|w| w.len() == 5)
 //!     .write_to_zst_file("filtered.zst")?;
 //! # Ok::<(), std::io::Error>(())
 //! ```
+//!
+//! For loading from streams (e.g., embedded data), use `from_csv`, `from_csv_zstd`,
+//! `from_txt`, or `from_txt_zstd` with a reader like `std::io::Cursor`.
 //!
 //! # Case-Fold Ordering
 //!
@@ -46,9 +43,8 @@ mod word_stream;
 pub use boxed::BoxedWordStream;
 pub use super::ordering::case_fold_cmp;
 pub use sources::{
-    from_csv_file, from_csv_reader, from_csv_zst_file, from_sorted_file, from_sorted_reader,
-    from_sorted_zst_file, from_unsorted_file, from_unsorted_reader, from_unsorted_zst_file,
-    SortedLines, UnsortedWords,
+    from_csv, from_csv_zstd, from_sorted_file, from_sorted_reader, from_sorted_zst_file,
+    from_txt, from_txt_zstd, SortedLines, UnsortedWords,
 };
 pub use word_stream::WordStream;
 
@@ -125,56 +121,6 @@ impl WordStream<SortedLines<BufReader<Decoder<'static, BufReader<File>>>>> {
     /// ```
     pub fn from_sorted_zst_file(path: impl AsRef<Path>) -> io::Result<Self> {
         sources::from_sorted_zst_file(path)
-    }
-}
-
-impl WordStream<UnsortedWords> {
-    /// Creates a WordStream from an unsorted file.
-    ///
-    /// Loads the entire file into memory, sorts it using case-fold ordering,
-    /// and returns a stream over the sorted data.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be opened or read.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use wordle::wordlist::stream::WordStream;
-    ///
-    /// let stream = WordStream::from_unsorted_file("raw_words.txt")?;
-    /// for word in stream {
-    ///     println!("{}", word?);
-    /// }
-    /// # Ok::<(), std::io::Error>(())
-    /// ```
-    pub fn from_unsorted_file(path: impl AsRef<Path>) -> io::Result<Self> {
-        sources::from_unsorted_file(path)
-    }
-
-    /// Creates a WordStream from an unsorted zstd-compressed file.
-    ///
-    /// Loads and decompresses the entire file into memory, sorts it using case-fold ordering,
-    /// and returns a stream over the sorted data.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be opened, is not valid zstd, or cannot be read.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use wordle::wordlist::stream::WordStream;
-    ///
-    /// let stream = WordStream::from_unsorted_zst_file("raw_words.zst")?;
-    /// for word in stream {
-    ///     println!("{}", word?);
-    /// }
-    /// # Ok::<(), std::io::Error>(())
-    /// ```
-    pub fn from_unsorted_zst_file(path: impl AsRef<Path>) -> io::Result<Self> {
-        sources::from_unsorted_zst_file(path)
     }
 }
 
@@ -257,9 +203,9 @@ where
     /// # Example
     ///
     /// ```no_run
-    /// use wordle::wordlist::stream::from_unsorted_file;
+    /// use wordle::wordlist::stream::from_sorted_file;
     ///
-    /// from_unsorted_file("words.txt")?
+    /// from_sorted_file("words.txt")?
     ///     .to_lowercase()
     ///     .dedup()
     ///     .write_to_file("unique_words.txt")?;
@@ -277,9 +223,9 @@ where
     /// # Example
     ///
     /// ```no_run
-    /// use wordle::wordlist::stream::from_unsorted_file;
+    /// use wordle::wordlist::stream::from_sorted_file;
     ///
-    /// from_unsorted_file("words.txt")?
+    /// from_sorted_file("words.txt")?
     ///     .filter_non_alphabetic()
     ///     .write_to_file("alphabetic_words.txt")?;
     /// # Ok::<(), std::io::Error>(())
@@ -437,9 +383,10 @@ mod tests {
     }
 
     #[test]
-    fn test_full_pipeline_unsorted_file() {
-        let path = create_temp_file("cherry\nAPPLE\napple\nbanana\nApple\n");
-        let set = from_unsorted_file(&path)
+    fn test_full_pipeline_txt() {
+        use std::io::Cursor;
+        let data = b"cherry\nAPPLE\napple\nbanana\nApple\n";
+        let set = from_txt(Cursor::new(data))
             .unwrap()
             .to_lowercase()
             .dedup()
@@ -450,8 +397,6 @@ mod tests {
         assert!(set.contains("apple"));
         assert!(set.contains("banana"));
         assert!(set.contains("cherry"));
-
-        std::fs::remove_file(path).ok();
     }
 
     #[test]
@@ -515,9 +460,10 @@ mod tests {
     }
 
     #[test]
-    fn test_full_pipeline_unsorted_zst_file() {
-        let path = create_temp_zst_file("cherry\nAPPLE\napple\nbanana\nApple\n");
-        let set = from_unsorted_zst_file(&path)
+    fn test_full_pipeline_txt_zstd() {
+        use std::io::Cursor;
+        let data = zstd::encode_all(Cursor::new(b"cherry\nAPPLE\napple\nbanana\nApple\n".as_slice()), 0).unwrap();
+        let set = from_txt_zstd(Cursor::new(data))
             .unwrap()
             .to_lowercase()
             .dedup()
@@ -528,8 +474,6 @@ mod tests {
         assert!(set.contains("apple"));
         assert!(set.contains("banana"));
         assert!(set.contains("cherry"));
-
-        std::fs::remove_file(path).ok();
     }
 
     #[test]
