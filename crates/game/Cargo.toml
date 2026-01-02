@@ -3,8 +3,12 @@ name = "wordle-game"
 edition.workspace = true
 version.workspace = true
 
+[lib]
+name = "wordle_game"
+
 [dependencies]
 wordle-wordlists-processing = {path = "../wordlists-processing"}
+rand = "0.8"
 
 [build-dependencies]
 wordle-wordlists-processing = {path = "../wordlists-processing"}
