@@ -60,6 +60,8 @@ fn process_output(config: &OutputConfig) -> io::Result<()> {
         stream = stream.merge(process_input_file(input)?);
     }
 
+    stream = stream.dedup();
+
     // Write merged result
     stream.write_to_zst_file(config.output_path)?;
 
