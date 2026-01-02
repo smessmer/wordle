@@ -126,7 +126,7 @@ mod tests {
         // 'İ' (U+0130, Turkish capital I with dot) lowercases to "i\u{0307}" (2 chars)
         // 'İ'.to_lowercase() yields ['i', '\u{0307}']
         assert_eq!(char_cmp('İ', 'i'), Ordering::Greater); // 'i' + combining mark > 'i'
-        assert_eq!(char_cmp('İ', 'j'), Ordering::Less);    // 'i...' < 'j'
+        assert_eq!(char_cmp('İ', 'j'), Ordering::Less); // 'i...' < 'j'
 
         // 'ẞ' (U+1E9E, German capital sharp s) lowercases to 'ß' (1 char in Rust)
         assert_eq!(char_cmp('ẞ', 'ß'), Ordering::Greater); // uppercase > lowercase

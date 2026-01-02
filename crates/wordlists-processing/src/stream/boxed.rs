@@ -7,7 +7,7 @@ use crate::Word;
 
 use super::sinks;
 use super::transforms::{
-    filter_non_alphabetic, DedupStream, FilterStream, LowercaseStream, MergeStream,
+    DedupStream, FilterStream, LowercaseStream, MergeStream, filter_non_alphabetic,
 };
 
 /// A type-erased word stream for dynamic composition.
@@ -119,34 +119,26 @@ mod tests {
     #[test]
     fn test_basic_iteration() {
         let stream = BoxedWordStream::new(ok_iter(["apple", "banana", "cherry"]));
-        assert_eq!(
-            collect_strings(stream),
-            vec!["apple", "banana", "cherry"]
-        );
+        assert_eq!(collect_strings(stream), vec!["apple", "banana", "cherry"]);
     }
 
     #[test]
     fn test_filter() {
-        let stream = BoxedWordStream::new(ok_iter(["a", "bb", "ccc", "dddd"]))
-            .filter(|w| w.len() >= 2);
+        let stream =
+            BoxedWordStream::new(ok_iter(["a", "bb", "ccc", "dddd"])).filter(|w| w.len() >= 2);
         assert_eq!(collect_strings(stream), vec!["bb", "ccc", "dddd"]);
     }
 
     #[test]
     fn test_to_lowercase() {
-        let stream =
-            BoxedWordStream::new(ok_iter(["Apple", "BANANA", "Cherry"])).to_lowercase();
-        assert_eq!(
-            collect_strings(stream),
-            vec!["apple", "banana", "cherry"]
-        );
+        let stream = BoxedWordStream::new(ok_iter(["Apple", "BANANA", "Cherry"])).to_lowercase();
+        assert_eq!(collect_strings(stream), vec!["apple", "banana", "cherry"]);
     }
 
     #[test]
     fn test_dedup() {
         // Input must be sorted for dedup to work correctly
-        let stream =
-            BoxedWordStream::new(ok_iter(["apple", "Apple", "APPLE", "banana"])).dedup();
+        let stream = BoxedWordStream::new(ok_iter(["apple", "Apple", "APPLE", "banana"])).dedup();
         assert_eq!(collect_strings(stream), vec!["apple", "banana"]);
     }
 
@@ -192,10 +184,7 @@ mod tests {
             .to_lowercase()
             .dedup();
 
-        assert_eq!(
-            collect_strings(result),
-            vec!["apple", "banana", "cherry"]
-        );
+        assert_eq!(collect_strings(result), vec!["apple", "banana", "cherry"]);
     }
 
     #[test]

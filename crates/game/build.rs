@@ -1,7 +1,10 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use wordle_wordlists_processing::{Word, stream::{BoxedWordStream, WordStream}};
+use wordle_wordlists_processing::{
+    Word,
+    stream::{BoxedWordStream, WordStream},
+};
 
 struct OutputConfig {
     output_path: &'static str,
@@ -35,7 +38,9 @@ fn data_path() -> PathBuf {
     Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("wordlists")
 }
 
-fn process_input_stream(stream: WordStream<impl Iterator<Item=io::Result<Word>> + 'static>) -> BoxedWordStream {
+fn process_input_stream(
+    stream: WordStream<impl Iterator<Item = io::Result<Word>> + 'static>,
+) -> BoxedWordStream {
     stream
         .filter(|w| w.chars().count() == 5)
         .filter_non_alphabetic()

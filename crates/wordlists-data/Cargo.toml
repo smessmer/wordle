@@ -5,3 +5,4 @@ version.workspace = true
 
 [dependencies]
 wordle-wordlists-processing = {path = "../wordlists-processing"}
+common_macros.workspace = true

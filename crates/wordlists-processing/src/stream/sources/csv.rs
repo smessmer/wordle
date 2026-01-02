@@ -5,8 +5,8 @@ use std::io::{self, BufReader, Read};
 use zstd::Decoder;
 
 use super::txt::UnsortedWords;
-use crate::stream::word_stream::WordStream;
 use crate::Word;
+use crate::stream::word_stream::WordStream;
 
 /// Creates a WordStream from a CSV reader, using the first column as words.
 ///

@@ -40,11 +40,11 @@ mod sources;
 pub(crate) mod transforms;
 mod word_stream;
 
-pub use boxed::BoxedWordStream;
 pub use super::ordering::case_fold_cmp;
+pub use boxed::BoxedWordStream;
 pub use sources::{
-    from_csv, from_csv_zstd, from_sorted_file, from_sorted_reader, from_sorted_zst_file,
-    from_txt, from_txt_zstd, SortedLines, UnsortedWords,
+    SortedLines, UnsortedWords, from_csv, from_csv_zstd, from_sorted_file, from_sorted_reader,
+    from_sorted_zst_file, from_txt, from_txt_zstd,
 };
 pub use word_stream::WordStream;
 
@@ -56,13 +56,11 @@ use std::path::Path;
 use zstd::Decoder;
 
 use crate::{Word, WordSet};
-use transforms::{filter_non_alphabetic, DedupStream, FilterStream, LowercaseStream, MergeStream};
+use transforms::{DedupStream, FilterStream, LowercaseStream, MergeStream, filter_non_alphabetic};
 
 /// Type alias for the iterator produced by `WordStream::from_word_set`.
-type WordSetIter = std::iter::Map<
-    <WordSet as IntoIterator>::IntoIter,
-    fn(Word) -> io::Result<Word>,
->;
+type WordSetIter =
+    std::iter::Map<<WordSet as IntoIterator>::IntoIter, fn(Word) -> io::Result<Word>>;
 
 impl WordStream<SortedLines<BufReader<File>>> {
     /// Creates a WordStream from a pre-sorted file.
@@ -462,7 +460,11 @@ mod tests {
     #[test]
     fn test_full_pipeline_txt_zstd() {
         use std::io::Cursor;
-        let data = zstd::encode_all(Cursor::new(b"cherry\nAPPLE\napple\nbanana\nApple\n".as_slice()), 0).unwrap();
+        let data = zstd::encode_all(
+            Cursor::new(b"cherry\nAPPLE\napple\nbanana\nApple\n".as_slice()),
+            0,
+        )
+        .unwrap();
         let set = from_txt_zstd(Cursor::new(data))
             .unwrap()
             .to_lowercase()

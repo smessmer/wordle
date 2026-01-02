@@ -14,11 +14,17 @@ use crate::Word;
 ///
 /// Uses `Peekable` internally to validate sortedness by comparing current
 /// with next item, eliminating the need to store the previous item.
-pub struct WordStream<I: Iterator> {
+pub struct WordStream<I: Iterator>
+where
+    I: Iterator<Item = io::Result<Word>> + 'static,
+{
     inner: Peekable<I>,
 }
 
-impl<I: Iterator> WordStream<I> {
+impl<I: Iterator> WordStream<I>
+where
+    I: Iterator<Item = io::Result<Word>> + 'static,
+{
     /// Creates a new WordStream wrapping the given iterator.
     ///
     /// The stream will validate sortedness during iteration and panic
@@ -76,10 +82,7 @@ where
                 if let Some(Ok(next)) = self.inner.peek()
                     && w.cmp(next) == Ordering::Greater
                 {
-                    panic!(
-                        "WordStream is not sorted: {:?} came before {:?}",
-                        w, next
-                    );
+                    panic!("WordStream is not sorted: {:?} came before {:?}", w, next);
                 }
                 Some(Ok(w))
             }
@@ -95,9 +98,7 @@ mod tests {
     fn ok_iter<I: IntoIterator<Item = &'static str>>(
         items: I,
     ) -> impl Iterator<Item = io::Result<Word>> {
-        items
-            .into_iter()
-            .map(|s| Ok(Word(s.to_string())))
+        items.into_iter().map(|s| Ok(Word(s.to_string())))
     }
 
     #[test]

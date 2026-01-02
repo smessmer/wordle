@@ -118,10 +118,7 @@ mod tests {
 
         #[test]
         fn test_len() {
-            let set: WordSet = vec!["a", "b", "c"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let set: WordSet = vec!["a", "b", "c"].into_iter().map(String::from).collect();
             assert_eq!(set.len(), 3);
         }
 
@@ -153,10 +150,7 @@ mod tests {
 
         #[test]
         fn test_into_iterator_owned() {
-            let set: WordSet = vec!["a", "b", "c"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let set: WordSet = vec!["a", "b", "c"].into_iter().map(String::from).collect();
             let collected: Vec<String> = set.into_iter().map(|w| w.0).collect();
             assert_eq!(collected, vec!["a", "b", "c"]);
         }
@@ -194,10 +188,7 @@ mod tests {
 
         #[test]
         fn test_clone() {
-            let set: WordSet = vec!["a", "b", "c"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let set: WordSet = vec!["a", "b", "c"].into_iter().map(String::from).collect();
             let cloned = set.clone();
 
             assert_eq!(set, cloned);
@@ -205,18 +196,12 @@ mod tests {
 
         #[test]
         fn test_equality() {
-            let set1: WordSet = vec!["a", "b"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let set1: WordSet = vec!["a", "b"].into_iter().map(String::from).collect();
             let set2: WordSet = vec!["b", "a"] // different order, same content
                 .into_iter()
                 .map(String::from)
                 .collect();
-            let set3: WordSet = vec!["a", "c"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let set3: WordSet = vec!["a", "c"].into_iter().map(String::from).collect();
 
             assert_eq!(set1, set2);
             assert_ne!(set1, set3);

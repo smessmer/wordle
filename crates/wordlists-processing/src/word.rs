@@ -10,7 +10,7 @@ use super::ordering::case_fold_cmp;
 /// This is a newtype around `String` that implements `Ord` using case-fold
 /// comparison, where lowercase letters come before uppercase:
 /// `"apple" < "Apple" < "APPLE" < "banana"`.
-/// 
+///
 /// This ordering is important because otherwise [WordStream::to_lowercase]
 /// could break the sorted invariant of a WordStream.
 #[derive(Debug, Clone, Eq, PartialEq)]

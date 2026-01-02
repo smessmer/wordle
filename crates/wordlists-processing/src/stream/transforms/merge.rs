@@ -133,10 +133,8 @@ mod tests {
             Err(io::Error::new(io::ErrorKind::Other, "left error")),
             Ok(Word("cherry".to_string())),
         ];
-        let right: Vec<io::Result<Word>> = vec![
-            Ok(Word("banana".to_string())),
-            Ok(Word("date".to_string())),
-        ];
+        let right: Vec<io::Result<Word>> =
+            vec![Ok(Word("banana".to_string())), Ok(Word("date".to_string()))];
         let merged = MergeStream::new(left.into_iter().peekable(), right.into_iter().peekable());
         let results: Vec<_> = merged.collect();
 

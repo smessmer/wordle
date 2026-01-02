@@ -2,9 +2,9 @@
 
 mod dedup;
 mod filter;
+mod filter_non_alphabetic;
 mod lowercase;
 mod merge;
-mod filter_non_alphabetic;
 
 pub use dedup::DedupStream;
 pub use filter::FilterStream;
